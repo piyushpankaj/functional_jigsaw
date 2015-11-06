@@ -43,3 +43,49 @@ main = do
           sizeY = 700
 
 --CHUNK
+chunk bs len1 a b = B.index bs ((a*len1)+b)
+
+make_chunks :: B.ByteString -> Int -> Int -> Int -> [(Int, Int)] -> Int -> IO()
+make_chunks bs len2 part_width part_height [] _ = putStrLn ""
+make_chunks bs len2 part_width part_height (x:xs) y = do
+  let (i, j) = x
+  let a = j * part_width * 4
+  let b = i * part_height
+  let c = a + part_width * 4 - 1
+  let d = b + part_height - 1
+  
+  let part = chunk bs len2 <$> [b..d] <*> [a..c]
+  let part1 = B.pack part
+  let sample_img = packRGBA32ToBMP part_width part_height part1
+
+  writeBMP ("images/sample_img_" ++ show (j + y) ++ "_" ++ show (i - 1) ++ ".bmp") sample_img
+  make_chunks bs len2 part_width part_height xs y
+
+
+--SPLIT
+splitimg:: FilePath -> Int -> Int -> IO() 
+splitimg filename num_split y = do
+  Right img <- readBMP filename
+  let (width, height) = bmpDimensions img
+  let bs = unpackBMPToRGBA32 img
+  let len = B.length bs
+  let len1 = (fromIntegral len )/ (fromIntegral height)
+  let len2 = round len1
+  let part_width = round ((fromIntegral width)/(fromIntegral num_split)) --128
+  let part_height = round ((fromIntegral height)/(fromIntegral num_split)) --128
+  let lst = [0..num_split-1]
+  let x = [(a, b) | a <- lst, b <- lst]
+  make_chunks bs len2 part_width part_height x y
+
+  
+
+stepTime :: Float -> Game -> Game
+stepTime _ = id
+
+--newGame ::  Game
+newGame r = Game {
+    board = initialBoard r,
+    mousePos = (1000, 0),
+    heldPiece = Nothing,
+    mainGame = False,
+  
