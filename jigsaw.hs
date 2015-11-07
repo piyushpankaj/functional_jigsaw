@@ -89,3 +89,15 @@ newGame r = Game {
     heldPiece = Nothing,
     mainGame = False,
   
+initiate board = Map.fromList (redPieces ++ bluePieces) where
+    lst = [0..num_split - 1]
+    pieces = [(i, j) | i <- lst, j <- lst]
+    redPieces  = [( (i + 1, j - 1), (i + 1, j - 1) ) | (i, j) <- pieces]
+    bluePieces = [(pos, (x,y)) | (_,pos,x,y) <- board ]
+
+drawGame :: Game -> Picture
+drawGame g@(Game board mousePos heldPiece mainGame randomState _) = Pictures [
+    drawBackground,
+    drawPieces board,
+    mouseHighlight g,
+    showEndGame g]
