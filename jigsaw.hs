@@ -206,3 +206,26 @@ drawGame g@(Game board mousePos heldPiece mainGame randomState _) = Pictures [
     drawPieces board,
     mouseHighlight g,
     showEndGame g]
+    
+showEndGame :: Game -> Picture
+showEndGame g@(Game _ _ _ _ _ endState) = do
+  if (isNothing endState)
+    then Blank
+    else
+      if (fromJust endState)
+        then pieceKindPicture 0 0
+        else scale 2 2 (pieceKindPicture 0 1)
+
+drawBackground :: Picture
+drawBackground = translateFloat (2.5 , 0.5) (bmp "white.bmp")
+
+drawPieces :: Board -> Picture
+drawPieces (p,_,_) = Pictures $ map drawPiece p 
+
+drawPiece :: Piece -> Picture
+drawPiece (side, pos, i , j) =
+    Color (sideColor side) $ translateCoord pos $ (pieceKindPicture i j)
+
+--pieceKindPicture :: PieceKind -> Picture
+pieceKindPicture i j = bmp ("images/sample_img_" ++ show i ++ "_" ++ show j ++ ".bmp")
+  --trace (" "++ show(i) ++ " "++ show(j)  ) (bmp ("images/sample_img_" ++ show i ++ "_" ++ show j ++ ".bmp"))
