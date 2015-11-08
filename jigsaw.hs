@@ -21,6 +21,111 @@ import Control.Monad.Random
 import Data.Array.ST
 import GHC.Arr
 
+derrange :: RandomGen g => [a] -> Rand g [a]
+derrange xs = do
+    let l = length xs
+    rands <- take l `fmap` getRandomRs (0, l-1)
+    let ar = runSTArray $ do
+        ar <- thawSTArray $ listArray (0, l-1) xs
+        forM_ (zip [0..(l-1)] rands) $ \(i, j) -> do
+            vi <- readSTArray ar i
+            vj <- readSTArray ar j
+            writeSTArray ar j vi
+            writeSTArray ar i vj
+        return ar
+    return (elems ar)
+
+genShuffle :: [(Side, (Int, Int), Int, Int)] -> [Int] -> Int -> [(Side, (Int, Int), Int, Int)]
+genShuffle xs [] _ = []
+genShuffle xs (y:ys) p = do
+  let (r, (a1, b1), c , d) = (xs !! p)
+  let (r1, (a2, b2), c1, d1) = (xs !! y)
+  (r, (a2, b2), c, d) : genShuffle xs ys (p + 1)
+
+--shuffle :: [(Side, (Int, Int), Int, Int)] -> RandomGen -> [(Side, (Int, Int), Int, Int)]
+shuffle [] r = []
+shuffle xs r = do
+  let len = length xs
+  --let t = permute len
+  let idx = [0..len - 1]
+  let shuffle_idx = evalRand (derrange idx) r
+  genShuffle xs shuffle_idx 0
+
+boardSize :: Int
+boardSize = 4
+
+searchDepth :: Int
+searchDepth = 3
+
+
+hexRadius :: Float
+hexRadius = 1
+
+hexWidth :: Float
+hexWidth = (sqrt 3) / 2
+
+hexColor :: Coord -> Color
+hexColor = cycleColors [ (85, 106, 47), (94, 117, 52), (77, 96, 43) ]
+
+img_height :: Int
+img_height = 400
+
+img_width :: Int
+img_width = 400
+
+num_split :: Int
+num_split = 4
+
+boardCoords :: [Coord]
+boardCoords = [ (i, j) |
+    i <- [-boardSize..boardSize],
+    j <- [-boardSize..boardSize],
+    j - i <= boardSize,
+    i - j <= boardSize ]
+
+data Side = Red | Blue deriving Eq
+type Piece = (Side, Coord, Int, Int)
+
+
+--type Pair = (Int, Int)
+type Pieces = Map Coord Coord
+type Board = ([Piece],Pieces,Pieces)
+
+sideColor :: Side -> Color
+sideColor side = case side of
+    Red -> makeColor8 255 190 180 255
+    Blue -> makeColor8 180 190 255 255
+
+cycleColors :: [ (Int, Int, Int) ] -> Coord -> Color
+cycleColors rgbs (i, j) = colors!!((i + j) `mod` (length colors))
+    where colors = map (\(r, g, b) -> makeColor8 r g b 255) rgbs
+
+hex :: Picture
+hex = Polygon [ (-x,-y), (x,-y), (x,y), (-x,y) ]
+    where x = 1
+          y = 1
+
+data HeldPiece = HeldPiece {
+    hpCoordOriginal :: Coord, -- piece's original position on the board
+    hpMouseOffset :: Point -- mouse's offset from piece when it was picked up
+    }
+
+data Game = Game {
+    board :: Board,
+    mousePos :: Point,
+    heldPiece :: Maybe Coord,
+    mainGame :: Bool,
+    randomState :: StdGen,
+    endState :: Maybe Bool
+    }
+
+
+low :: Int
+low = 1
+
+high :: Int
+high = 5
+
 main :: IO ()
 main = do
     r <- getStdGen
