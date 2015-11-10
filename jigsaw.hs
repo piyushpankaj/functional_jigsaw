@@ -267,3 +267,17 @@ lQuadrant x y =
     if x >= startw  && x <= (startw + fromIntegral img_width) && y >= (-1 * starth) && y <= (-1 * starth + fromIntegral img_height)
       then True
     else False
+
+detect :: (Float, Float) -> Maybe Point
+detect (x, y) = 
+  do
+    let tmp = (fromIntegral img_width) / (fromIntegral num_split)
+    let p1 = round ((x - tmp) / tmp)
+    let p2 = round ((x + fromIntegral (num_split + 1) * tmp) / tmp)
+    let q = round ((y + tmp) / tmp)
+    if (rQuadrant x y) 
+      then Just (screenFromGrid (p1 + 1, q - 1))
+      else if (lQuadrant x y)
+        then Just (screenFromGrid (-num_split - 1 + p2, q - 1))
+        else
+          Nothing
