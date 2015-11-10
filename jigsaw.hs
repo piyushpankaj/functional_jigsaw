@@ -281,3 +281,27 @@ detect (x, y) =
         then Just (screenFromGrid (-num_split - 1 + p2, q - 1))
         else
           Nothing
+mouseHighlight :: Game -> Picture
+mouseHighlight g@(Game board mousePos heldPiece mainGame randomState _) = case detect mousePos of
+  Just x -> mouseHighlight1 x (fromIntegral img_width / fromIntegral num_split) (fromIntegral img_height / fromIntegral num_split) 
+  Nothing -> Blank
+
+
+mouseHighlight1 x part_width part_height= Color white $ hexHighlight x part_width part_height
+
+--hexHighlight :: Coord -> Picture
+hexHighlight (x,y) part_width part_height = do
+  let p = x - part_width / fromIntegral 2
+  let q = y - part_height / fromIntegral 2
+  lineLoop [ (p, q), (p + part_width, q), (p + part_width, q + part_height), (p, q + part_height) ]
+
+
+handleInputEvent :: Event -> Game -> Game
+handleInputEvent e g = case e of
+    --(EventKey (Char 'e') Down _ pos) -> (onMouseMove pos g) { mousePos = (1,1000) }
+    (EventKey (Char 'e') Down _ pos) -> endGame (onMouseMove pos g)
+    (EventKey (MouseButton LeftButton) Down _ pos) -> firstMouseDown (onMouseMove pos g)
+    _ -> g
+
+onMouseMove :: Point -> Game -> Game
+onMouseMove p g = g { mousePos = p }
