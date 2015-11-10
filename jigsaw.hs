@@ -206,7 +206,7 @@ drawGame g@(Game board mousePos heldPiece mainGame randomState _) = Pictures [
     drawPieces board,
     mouseHighlight g,
     showEndGame g]
-    
+
 showEndGame :: Game -> Picture
 showEndGame g@(Game _ _ _ _ _ endState) = do
   if (isNothing endState)
@@ -229,3 +229,41 @@ drawPiece (side, pos, i , j) =
 --pieceKindPicture :: PieceKind -> Picture
 pieceKindPicture i j = bmp ("images/sample_img_" ++ show i ++ "_" ++ show j ++ ".bmp")
   --trace (" "++ show(i) ++ " "++ show(j)  ) (bmp ("images/sample_img_" ++ show i ++ "_" ++ show j ++ ".bmp"))
+
+translateFloat :: (Float, Float) -> Picture -> Picture
+translateFloat = (uncurry Translate) . floatToGrid
+
+floatToGrid :: (Float, Float) -> Point
+floatToGrid (i, j) = (x, y)
+    where x = (i * fromIntegral img_width) / fromIntegral (num_split)
+          y = (j * fromIntegral img_height) / fromIntegral ( num_split)
+
+translateCoord :: Coord -> Picture -> Picture
+translateCoord = (uncurry Translate) . screenFromGrid
+
+screenFromGrid :: Coord -> Point
+screenFromGrid (i, j) = (x, y)
+    where x = fromIntegral (i * img_width) / fromIntegral (num_split)
+          y = fromIntegral (j * img_height) / fromIntegral ( num_split)
+
+rQuadrant :: Float -> Float -> Bool
+rQuadrant x y =
+  do
+    let part_width = fromIntegral img_width / fromIntegral num_split
+    let part_height = fromIntegral img_height / fromIntegral num_split
+    let startw = (fromIntegral img_width) / (fromIntegral num_split) - part_width / 2
+    let starth = (fromIntegral img_height) / (fromIntegral num_split) + part_height / 2
+    if x >= startw  && x <= (startw + fromIntegral img_width) && y >= (-1 * starth) && y <= (-1 * starth + fromIntegral img_height)
+      then True
+    else False
+
+lQuadrant :: Float -> Float -> Bool
+lQuadrant x y =
+  do
+    let part_width = fromIntegral img_width / fromIntegral num_split
+    let part_height = fromIntegral img_height / fromIntegral num_split
+    let startw = (fromIntegral ((-1 * num_split - 1) * img_width)) / (fromIntegral num_split) - part_width / 2
+    let starth = (fromIntegral img_height) / (fromIntegral num_split) + part_height / 2
+    if x >= startw  && x <= (startw + fromIntegral img_width) && y >= (-1 * starth) && y <= (-1 * starth + fromIntegral img_height)
+      then True
+    else False
