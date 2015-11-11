@@ -305,3 +305,6 @@ handleInputEvent e g = case e of
 
 onMouseMove :: Point -> Game -> Game
 onMouseMove p g = g { mousePos = p }
+
+onMouseMove :: Point -> Game -> Game
+onMouseMove p g = g { mousePos = p }
