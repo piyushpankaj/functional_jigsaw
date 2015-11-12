@@ -308,3 +308,29 @@ onMouseMove p g = g { mousePos = p }
 
 onMouseMove :: Point -> Game -> Game
 onMouseMove p g = g { mousePos = p }
+
+endGame :: Game -> Game
+endGame g@(Game board mousePos heldPiece mainGame randomState _)= do
+  let (new_piece,map_piece,required_mapping) = board
+  let x = Map.toList map_piece
+  let y = Map.toList required_mapping
+  let x1 = filter check x
+  let isequal = (x1 == y)
+  trace (" " ++ show isequal) g{endState = Just isequal}
+
+--getPiece :: 
+getPiece alpha heldPiece = case alpha of
+  Just x -> Nothing
+  Nothing -> heldPiece
+
+returnFirst a = fun1
+
+fun1 a = a 
+
+getKey mousePos blocks = case detect' mousePos of
+  Just x -> (Map.lookup x blocks)
+  Nothing -> Nothing
+
+removejust x = do
+  Just x1 <- x
+  x1
