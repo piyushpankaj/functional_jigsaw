@@ -21,7 +21,6 @@ import Control.Monad.Random
 import Data.Array.ST
 import GHC.Arr
 
-
 derrange :: RandomGen g => [a] -> Rand g [a]
 derrange xs = do
     let l = length xs
@@ -57,16 +56,6 @@ boardSize = 4
 
 searchDepth :: Int
 searchDepth = 3
-
-
-hexRadius :: Float
-hexRadius = 1
-
-hexWidth :: Float
-hexWidth = (sqrt 3) / 2
-
-hexColor :: Coord -> Color
-hexColor = cycleColors [ (85, 106, 47), (94, 117, 52), (77, 96, 43) ]
 
 img_height :: Int
 img_height = 400
@@ -144,7 +133,7 @@ main = do
       stepTime
     where displayMode = InWindow "Jigsaw" (sizeX, sizeY) (5, 5)
           backgroundColor = makeColor8 170 180 145 255
-          framesPerSecond = 100
+          framesPerSecond = 0
           sizeX = 1200
           sizeY = 700
 
@@ -194,7 +183,10 @@ newGame r = Game {
     mousePos = (1000, 0),
     heldPiece = Nothing,
     mainGame = False,
-  
+    randomState = r,
+    endState = Nothing
+    }
+
 initiate board = Map.fromList (redPieces ++ bluePieces) where
     lst = [0..num_split - 1]
     pieces = [(i, j) | i <- lst, j <- lst]
@@ -204,9 +196,24 @@ initiate board = Map.fromList (redPieces ++ bluePieces) where
 drawGame :: Game -> Picture
 drawGame g@(Game board mousePos heldPiece mainGame randomState _) = Pictures [
     drawBackground,
-    drawPieces board,
+    drawPieces g,
     mouseHighlight g,
+    drawHeldPiece g,
     showEndGame g]
+
+initialBoard r = do
+  --redPieces ++ bluePieces where
+    let lst = [0..num_split - 1]
+    let pieces = [(i, j) | i <- lst, j <- lst]
+    let redPieces  = [(Red, (i + 1, j - 1), i + 1, j - 1) | (i, j) <- pieces]
+    let bluePieces = [(Blue, (-num_split - 1 + i, j - 1), -num_split - 1 + i, j - 1) | (i, j) <- pieces]
+    let required_mapping = Map.fromList [( (i + 1,j - 1),(-num_split - 1 + i, j -1)) | (i,j) <- pieces ] 
+    --trace (" "++(show (length redPieces)) ) (redPieces )
+    --temp_red_pieces <- evalRand (shuffle redPieces) 5
+    let temp_blue_pieces = bluePieces
+    --let temp_blue_pieces = shuffle bluePieces r
+    let map_piece = initiate temp_blue_pieces
+    (temp_blue_pieces ++ redPieces,map_piece, required_mapping)
 
 showEndGame :: Game -> Picture
 showEndGame g@(Game _ _ _ _ _ endState) = do
@@ -218,14 +225,46 @@ showEndGame g@(Game _ _ _ _ _ endState) = do
         else scale 2 2 (pieceKindPicture 0 1)
 
 drawBackground :: Picture
-drawBackground = translateFloat (2.5 , 0.5) (bmp "white.bmp")
+drawBackground = pictures[(bmp "backmain.bmp") ,translateFloat (2.5 , 0.5) (bmp "white.bmp"), translateFloat (-3.5 , 0.5) (bmp "back1.bmp") ]
 
-drawPieces :: Board -> Picture
-drawPieces (p,_,_) = Pictures $ map drawPiece p 
+removeheld :: Maybe Coord -> Piece -> Bool
+removeheld heldPiece p = do
+  if(isNothing heldPiece)
+    then True
+    else
+      do
+        let (_,x,_,_) = p
+        if(x == fromJust heldPiece)
+          then False
+          else True
+      
+
+drawPieces :: Game -> Picture
+drawPieces g@(Game board _ heldPiece _ _ _) = do
+  let (p,_,_) = board
+  Pictures $ map drawPiece (filter (removeheld heldPiece) p ) 
 
 drawPiece :: Piece -> Picture
 drawPiece (side, pos, i , j) =
     Color (sideColor side) $ translateCoord pos $ (pieceKindPicture i j)
+
+drawPieceFloat :: ((Float, Float), Int, Int) -> Picture
+drawPieceFloat ( pos, i , j) = uncurry Translate pos $ (pieceKindPicture i j)
+
+
+drawHeldPiece :: Game -> Picture
+drawHeldPiece g@(Game board mousePos heldPiece _ _ _) = do
+	if (isNothing heldPiece)
+		then Blank
+		else
+			do
+        let (i,j) = fromJust heldPiece
+        let (_,map_piece,_) = board
+        let (i2,j2) = fromJust (Map.lookup (i,j) map_piece)
+        drawPieceFloat (mousePos,i2,j2)
+
+
+	
 
 --pieceKindPicture :: PieceKind -> Picture
 pieceKindPicture i j = bmp ("images/sample_img_" ++ show i ++ "_" ++ show j ++ ".bmp")
@@ -282,6 +321,21 @@ detect (x, y) =
         then Just (screenFromGrid (-num_split - 1 + p2, q - 1))
         else
           Nothing
+
+detect' :: (Float, Float) -> Maybe Coord
+detect' (x, y) = 
+  do
+    let tmp = (fromIntegral img_width) / (fromIntegral num_split)
+    let p1 = round ((x - tmp) / tmp)
+    let p2 = round ((x + fromIntegral (num_split + 1) * tmp) / tmp)
+    let q = round ((y + tmp) / tmp)
+    if (rQuadrant x y) 
+      then Just ((p1 + 1, q - 1))
+      else if (lQuadrant x y)
+        then Just ((-num_split - 1 + p2, q - 1))
+        else
+          Nothing
+
 mouseHighlight :: Game -> Picture
 mouseHighlight g@(Game board mousePos heldPiece mainGame randomState _) = case detect mousePos of
   Just x -> mouseHighlight1 x (fromIntegral img_width / fromIntegral num_split) (fromIntegral img_height / fromIntegral num_split) 
@@ -302,13 +356,14 @@ handleInputEvent e g = case e of
     --(EventKey (Char 'e') Down _ pos) -> (onMouseMove pos g) { mousePos = (1,1000) }
     (EventKey (Char 'e') Down _ pos) -> endGame (onMouseMove pos g)
     (EventKey (MouseButton LeftButton) Down _ pos) -> firstMouseDown (onMouseMove pos g)
+    (EventMotion pos) -> onMouseMove pos g
     _ -> g
 
 onMouseMove :: Point -> Game -> Game
-onMouseMove p g = g { mousePos = p }
+onMouseMove p g = (g { mousePos = p })
 
-onMouseMove :: Point -> Game -> Game
-onMouseMove p g = g { mousePos = p }
+check :: (Coord, Coord) -> Bool
+check ((a,b),(c,d) ) = if (a >= 0) then True else False 
 
 endGame :: Game -> Game
 endGame g@(Game board mousePos heldPiece mainGame randomState _)= do
@@ -335,3 +390,53 @@ getKey mousePos blocks = case detect' mousePos of
 removejust x = do
   Just x1 <- x
   x1
+
+--getPieceList :: Pieces -> 
+getPieceList [] _ = []
+getPieceList (x:xs) m = do
+  let (a, pos, i, j) = x
+  let (p, q) = fromJust (Map.lookup pos m)
+  (a, pos, p, q) : getPieceList xs m
+
+firstMouseDown :: Game -> Game
+firstMouseDown g@(Game board mousePos heldPiece mainGame randomState _) = do
+  if (mainGame)
+    then onMouseDown g
+    else do
+      let (temp_piece, map_piece,required_mapping) = board
+      let x = take (num_split * num_split) temp_piece
+      let y = drop (num_split * num_split) temp_piece
+      let z = shuffle x randomState
+      let map_piece1 = initiate z
+      let new_board = (z ++ y, map_piece1,required_mapping)
+      --let new_board = board
+      g{board = new_board, mainGame = True}
+
+onMouseDown :: Game -> Game
+onMouseDown g@(Game board mousePos heldPiece mainGame randomState _) = do
+  let (x,y) = mousePos
+  let p = lQuadrant x y
+  let q = rQuadrant x y
+  let   (new_piece,map_piece,required_mapping) = board
+  let alpha = detect' mousePos
+  --trace (" "++ show alpha) g 
+  if (isNothing alpha)
+    then g
+    else if (isNothing heldPiece)
+      then g{heldPiece = alpha}
+      else do  
+        let t = fromJust (alpha)
+        let img1 = fromJust (Map.lookup t map_piece)
+        let s = fromJust heldPiece 
+        let img2 = fromJust (Map.lookup s map_piece)
+        --let map_piece1 =  Map.adjust (returnFirst img2) s map_piece
+        let map_piece1 = Map.insert t img2 map_piece 
+        let map_piece2 =  Map.insert s img1 map_piece1
+        let new_board = (new_piece,map_piece2,required_mapping)
+        let new_piece3 = getPieceList new_piece map_piece2
+        let new_board = (new_piece3,map_piece2,required_mapping)
+        --g{heldPiece = Nothing,  board = new_board}
+        trace (" " ++ show (alpha) ++ " " ++ show (t) ++" "++ show (img1) ++ " " ++ show s ++ " " ++ show img2 )  g{heldPiece = Nothing,  board = new_board}
+
+
+  --trace (" " ++ show (alpha) ++" "++ show (q) ++ " " ++ show x ++ " " ++ show y ) g
